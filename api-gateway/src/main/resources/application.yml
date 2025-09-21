@@ -1,0 +1,39 @@
+server:
+  port: 4004
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: auth-service-route
+          uri: http://auth-service-new:4006
+          predicates:
+            - Path=/auth/**
+          filters:
+            # This strips /auth/ and then inject ** into our uri
+            - StripPrefix=1
+
+        - id: patient-service-route
+          uri: http://patient-service:4000
+          predicates:
+            # Tells us what endpoint is reached
+            - Path=/api/patients/**
+          filters:
+            # This takes out /api
+            - StripPrefix=1
+            - JwtValidation
+
+        - id: api-docs-patient-route
+          uri: http://patient-service:4000
+          predicates:
+            - Path=/api-docs/patients
+          filters:
+            # this rewrites the endpoint that is reached to /v3/api-docs to make an internal call
+            - RewritePath=/api-docs/patients,/v3/api-docs
+
+        - id: api-docs-auth-route
+          uri: http://auth-service-new:4006
+          predicates:
+            - Path=/api-docs/auth
+          filters:
+            - RewritePath=/api-docs/auth,/v3/api-docs
