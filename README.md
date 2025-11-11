@@ -87,7 +87,6 @@ Healthcare data is incredibly sensitive. Here's how it's protected:
 
 **Data Storage**
 - 🐘 PostgreSQL - Robust database with ACID guarantees
-- 🎯 Redis - Lightning-fast cache for frequent queries
 
 **Cloud Infrastructure**
 - 🐳 Docker - Containerized all services for consistency across environments
