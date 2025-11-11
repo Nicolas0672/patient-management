@@ -2,8 +2,6 @@
 
 > A modern healthcare backend that manages patient data securely and efficiently using cloud-native microservices architecture.
 
----
-
 ## 🎯 What This Project Does
 
 Imagine a hospital system where:
@@ -77,7 +75,6 @@ Healthcare data is incredibly sensitive. Here's how it's protected:
 - 🔒 **Data Encryption** - All patient information is scrambled in storage (AES-256 encryption)
 - 🛡️ **Role-Based Access** - Doctors see different data than billing staff
 - 📝 **Audit Logs** - Every data access is recorded (required for HIPAA compliance)
-- 🚦 **Rate Limiting** - Prevents system abuse (100 requests per minute per user)
 
 ---
 
@@ -93,7 +90,8 @@ Healthcare data is incredibly sensitive. Here's how it's protected:
 - 🎯 Redis - Lightning-fast cache for frequent queries
 
 **Cloud Infrastructure**
-- ☁️ AWS ECS Fargate - Runs services without managing servers
+- 🐳 Docker - Containerized all services for consistency across environments
+- ☁️ AWS ECS Fargate - Runs Docker containers without managing servers
 - 🏗️ AWS CDK - Infrastructure as code (everything automated)
 - 🧪 LocalStack - Simulates AWS locally (saves $1000s in testing costs)
 
@@ -119,6 +117,59 @@ Healthcare data is incredibly sensitive. Here's how it's protected:
 
 ---
 
+## 🐳 Docker Containerization
+
+**Why Docker matters for this project:**
+
+Every microservice runs in its own **Docker container** - think of it like each service having its own mini-computer with exactly what it needs, nothing more. This solves the classic "but it works on my machine!" problem.
+
+### **Real Benefits:**
+
+1. **🎯 Consistency Everywhere**
+   ```
+   Developer Laptop → LocalStack Testing → AWS Production
+   Same Docker image ────────────────────────→ No surprises
+   ```
+
+2. **⚡ Perfect for Kafka**
+   - Kafka requires specific network configurations
+   - Docker Compose sets up Kafka + ZooKeeper + all services with one command
+   - Services discover each other automatically via Docker networking
+
+3. **🔄 Easy Rollbacks**
+   - New version breaks? Roll back to previous Docker image in seconds
+   - Keep multiple versions running side-by-side during testing
+
+4. **💰 Cost-Efficient Development**
+   - Run entire AWS infrastructure locally using Docker + LocalStack
+   - Test complex scenarios without spending a penny on AWS
+
+### **Docker Setup Example:**
+
+```yaml
+# docker-compose.yml (simplified)
+services:
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    ports: ["9092:9092"]
+  
+  patient-service:
+    build: ./patient-service
+    image: patient-service:latest
+    depends_on: [kafka, postgres]
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+  
+  billing-service:
+    build: ./billing-service
+    image: billing-service:latest
+    depends_on: [kafka]
+```
+
+**The magic:** Change one environment variable, and the same Docker containers work in LocalStack or AWS ECS Fargate.
+
+---
+
 ## 🛠️ Infrastructure Automation
 
 Instead of manually clicking through AWS console for hours, everything is defined in code:
@@ -130,16 +181,20 @@ DatabaseInstance patientDb = createDatabase(
     "patient-service-db"
 );
 
-// Example: Deploying a service with all its dependencies
+// Example: Deploying a containerized service with all dependencies
 FargateService patientService = createFargateService(
     "PatientService",
     List.of(4000), // port
     patientDb,     // connects to database
     kafkaConfig    // connects to messaging
 );
+
+// The CDK code above deploys your Docker image to AWS:
+// ContainerImage.fromRegistry("patient-service")
 ```
 
 **Benefits:**
+- 🐳 Same Docker images everywhere - Dev, Test, Production
 - 🔄 Reproducible - Same setup every time
 - ⏱️ Fast - 36 minutes vs 4 hours manual setup
 - 📝 Documented - Code explains what's deployed
@@ -177,32 +232,61 @@ FargateService patientService = createFargateService(
 - **Reliable:** Messages aren't lost even if a service crashes
 - **Scalable:** Handles millions of events per second
 - **Replayable:** Can reprocess events if needed (time travel for data!)
+- **Docker-Friendly:** Kafka's distributed nature works perfectly with containerized microservices
 
-### **Why Microservices?**
-- **Independent Scaling:** Heavy billing load? Scale just that service
-- **Team Autonomy:** Different teams can work on different services
-- **Fault Isolation:** One service failing doesn't crash the whole system
+### **Why Docker + Microservices?**
+- **Independent Scaling:** Heavy billing load? Scale just that Docker container
+- **Team Autonomy:** Different teams build separate containers
+- **Fault Isolation:** One container failing doesn't crash the whole system
+- **Version Control:** Each service can update independently
+
+---
+
+## 📦 Project Structure
+
+```
+patient-management/
+├── api-gateway/          # Entry point, authentication
+├── patient-service/      # Patient records, appointments
+├── billing-service/      # Invoices, payments, insurance
+├── analytics-service/    # Reports, dashboards
+├── infrastructure/       # AWS CDK code (LocalStack.java)
+├── docker-compose.yml    # Local development setup
+└── tests/               # Integration & load tests
+```
+
+**What happens behind the scenes:**
+1. 🐳 Docker spins up 4 microservice containers
+2. 📬 Kafka cluster starts (with ZooKeeper)
+3. 💾 PostgreSQL databases initialize for Patient & Auth services
+4. 🔗 Docker networking connects everything automatically
+5. ✅ Health checks ensure everything is running
+
+Total startup time: **~90 seconds** ⚡
 
 ---
 
 ## 🎓 What I Learned Building This
 
+- **Docker is essential for microservices** - Managing 4+ services without containers would be a nightmare. Docker made it possible to run the entire stack (Kafka included) on a laptop.
+
+- **Kafka + Docker = Perfect Match** - Kafka's complexity (brokers, ZooKeeper, topics) is tamed by Docker Compose. One command spins up a production-like event streaming platform.
+
 - **Microservices aren't just "small services"** - They require careful design around data ownership, communication patterns, and failure handling.
 
-- **Infrastructure as Code is a game-changer** - Being able to destroy and recreate entire environments in minutes gives huge confidence when deploying.
+- **Infrastructure as Code is a game-changer** - Being able to destroy and recreate entire environments in minutes gives huge confidence when deploying. Same Docker images from dev → prod eliminates "works on my machine" issues.
 
 - **gRPC's performance gains are real** - The 40% latency improvement wasn't just theoretical, it's measurable and consistent.
 
-- **Testing is insurance** - The 99% test coverage paid off countless times by catching bugs before they reached production.
+- **Testing is insurance** - The 99% test coverage paid off countless times by catching bugs before they reached production. Testcontainers let me test with real Docker-based databases.
 
 - **Event-driven architecture scales** - Kafka's decoupling pattern made it easy to add the Analytics service later without touching existing code.
 
 ---
 
-
 ## 📬 Contact
 
-**Nicolas** | [GitHub](https://github.com/Nicolas0672) | [[LinkedIn](#)](https://www.linkedin.com/in/nicolas-ouch-90705a315/)
+**Nicolas** | [GitHub](https://github.com/Nicolas0672) | linkedin.com/in/nicolas-ouch-90705a315/
 
 ---
 
